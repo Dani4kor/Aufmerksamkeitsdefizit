@@ -3,6 +3,17 @@ const DEFENDER_POSITION_X_MAX = 250;
 const DEFENDER_POSITION_X_MIN = 150;
 const DEFENDER_POSITION_X_MIN_STARTSTOP = 100;
 
+const MIDDLE_OF_FIELD_X = 354;
+const FIELD_END_X = 708;
+
+
+
+// ------------------------------------------------------------------------
+// -------------------------------- MODELS --------------------------------
+// ------------------------------------------------------------------------
+
+
+
 function DefenderBallModel(data) {
   const ballStats = getBallStats(data.ball, data.settings);
   this.x = ballStats.x;
@@ -13,6 +24,14 @@ function DefenderBallModel(data) {
 function DefenderPlayerModel(data) {
   this.x = data.yourTeam.players[data.playerIndex].x;
 }
+
+
+
+// -----------------------------------------------------------------------
+// -------------------------------- UTILS --------------------------------
+// -----------------------------------------------------------------------
+
+
 
 function getPlayerMove(data) {
   // TODO : IMPLEMENT THE BETTER STRATEGY FOR YOUR BOT
@@ -36,6 +55,31 @@ function getPlayerMove(data) {
   return { direction, velocity };
 }
 
+function getDefenderMovement(playerModel, ballStats) {
+    let direction, velocity;
+
+    if (playerModel.x > DEFENDER_POSITION_X_MAX) {
+      velocity = 3;
+      direction = toRadian(180);
+    } else if (playerModel.x < DEFENDER_POSITION_X_MIN) {
+      velocity = 3;
+      direction = toRadian(0);
+    } else if (playerModel.x < DEFENDER_POSITION_X_MAX && playerModel.x > DEFENDER_POSITION_X_MIN_STARTSTOP) {
+      velocity = 0;
+      direction = toRadian(0);
+    }
+
+    return { direction, velocity };
+}
+
+
+
+// -----------------------------------------------------------------------
+// -------------------------------- UTILS --------------------------------
+// -----------------------------------------------------------------------
+
+
+
 function getBallStats(ball, gameSettings) {
   var stopTime = getStopTime(ball);
   var stopDistance = ball.velocity * stopTime
@@ -54,27 +98,10 @@ function getStopTime(ball) {
   return ball.velocity / ball.settings.moveDeceleration;
 }
 
-function getDefenderMovement(playerModel, ballStats) {
-    let direction, velocity;
-
-    if (playerModel.x > DEFENDER_POSITION_X_MAX) {
-        velocity = 3;
-        direction = toRadian(180);
-    } else if (playerModel.x < DEFENDER_POSITION_X_MIN) {
-        velocity = 3;
-        direction = toRadian(0);
-    } else if (playerModel.x < DEFENDER_POSITION_X_MAX && playerModel.x > DEFENDER_POSITION_X_MIN_STARTSTOP) {
-      velocity = 0;
-      direction = toRadian(0);
-    }
-
-    return { direction, velocity };
-}
-
-
-
 function toRadian(degree) {
 	return (degree * 3.14) / 180;
 }
+
+
 
 onmessage = (e) => postMessage(getPlayerMove(e.data));
