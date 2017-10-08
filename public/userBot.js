@@ -1,3 +1,5 @@
+"use strict";
+
 const DEFENDER_PLAYER_ID = 1;
 
 const FORWARD_PLAYER_ID = 0;
@@ -80,38 +82,35 @@ function getSemiForwardMovement(data){
   const forwardModel = new ForwardPlayerModel(data);
   const ballStats = new BallModel(data);
 
-  ballTaget = {
+  const ballTaget = {
     x: ballStats.x,
     y: ballStats.y
   }
 
-  middleFiled = {
+  const middleFiled = {
     x : 354,
     y : 236.5
   }
 
-  forwardRange2ball = getRangeTo(forwardModel,  ballTaget)
-  semiForwardRange2ball = getRangeTo(playerModel,  ballTaget)
+  const forwardRange2ball = getRangeTo(forwardModel,  ballTaget)
+  const semiForwardRange2ball = getRangeTo(playerModel,  ballTaget)
 
   if (forwardModel.x >= 256) {
     if (forwardRange2ball > 50 && semiForwardRange2ball > 45){
-      console.log("MOVE TO BALL")
       return getDefaultMovement(data);
     }
     else if( forwardRange2ball > 50 && semiForwardRange2ball < 45){
-      console.log("MOVE TO BALL")
       return getDefaultMovement(data);
     }
     else {
-      direction = degreeToPoint(playerModel, forwardModel);
-      velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
-      console.log("MOVE TO FORWARD")
+      const direction = degreeToPoint(playerModel, forwardModel);
+      const velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
       return { direction, velocity };
     }
   }
   else {
-    direction = degreeToPoint(playerModel, middleFiled);
-    velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
+    const direction = degreeToPoint(playerModel, middleFiled);
+    const velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
     return { direction, velocity };
   }
 }
@@ -144,8 +143,8 @@ function getDefenderMovement(data) {
 
     return { direction, velocity }
   } else {
-    // return getBallApproachMovement(ballModel, playerModel);
-    return getDefaultMovement(data);
+    return getBallApproachMovement(ballModel, playerModel);
+    // return getDefaultMovement(data);
   }
 
   return { direction, velocity };
@@ -218,12 +217,16 @@ function getBallApproachMovement(ballPosition, defenderActualPosition) {
     */
   }
 
-  console.log(`
-    Approach radius is ${actualRadius};
-    Defender's radius position is x:${defenderRadiusPosition.x}, y:${defenderRadiusPosition.y}
-    Defender's actual position is x:${defenderActualPosition.x}, y:${defenderActualPosition.y}
-    Ball actual position is x:${ballPosition.x} y:${ballPosition.y}
-  `);
+  console.log(
+    GeomUtils.getTextRepresentationOfLinearFunction(ballPosition, defenderActualPosition)
+  );
+
+  // console.log(`
+  //   Approach radius is ${actualRadius};
+  //   Defender's radius position is x:${defenderRadiusPosition.x}, y:${defenderRadiusPosition.y}
+  //   Defender's actual position is x:${defenderActualPosition.x}, y:${defenderActualPosition.y}
+  //   Ball actual position is x:${ballPosition.x} y:${ballPosition.y}
+  // `);
 
   return {
     direction: degreeToPoint(defenderActualPosition, { x: defenderRadiusPosition, y: ballPosition.y }),
@@ -262,8 +265,90 @@ onmessage = (e) => postMessage(getPlayerMove(e.data));
 
 
 
-class GeometricUtils {
-  static buildLineOnBasedOnTwoDots(first, second) {
-    // TODO: TBD
+class GeomUtils {
+  static getLinearFunctionBasedOnTwoDots(first, second) {
+    const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
+
+    return GeomUtils.getYofLinearFunction.bind(null, a, b);
+  }
+
+  static getLinearFunctionPerpendicularInDot(a, b, dot) {
+    const $a = -1 / a;
+    const $b = dot.y - $a * dot.x;
+    console.log(`Func is: y = ${$a}x + ${$b}`);
+    return GeomUtils.getYofLinearFunction.bind(null, $a, $b);
+  }
+
+  static getYofLinearFunction(a, b, x) {
+    return a*x + b;
+  }
+
+  static getTextRepresentationOfLinearFunction(first, second) {
+    const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
+    return `y = ${a}x + ${b}`
+  }
+
+  static gauss(A, x) {
+    const abs = Math.abs;
+
+    function array_fill(i, n, v) {
+      const a = [];
+      for (; i < n; i++) {
+        a.push(v);
+      }
+
+      return a;
+    }
+
+    var i, k, j;
+
+    // Just make a single matrix
+    for (i=0; i < A.length; i++) {
+      A[i].push(x[i]);
+    }
+    var n = A.length;
+
+    for (i=0; i < n; i++) {
+      // Search for maximum in this column
+      var maxEl = abs(A[i][i]),
+          maxRow = i;
+      for (k=i+1; k < n; k++) {
+        if (abs(A[k][i]) > maxEl) {
+          maxEl = abs(A[k][i]);
+          maxRow = k;
+        }
+      }
+
+
+      // Swap maximum row with current row (column by column)
+      for (k=i; k < n+1; k++) {
+        var tmp = A[maxRow][k];
+        A[maxRow][k] = A[i][k];
+        A[i][k] = tmp;
+      }
+
+      // Make all rows below this one 0 in current column
+      for (k=i+1; k < n; k++) {
+        var c = -A[k][i]/A[i][i];
+        for (j=i; j < n+1; j++) {
+          if (i===j) {
+            A[k][j] = 0;
+          } else {
+            A[k][j] += c * A[i][j];
+          }
+        }
+      }
+    }
+
+    // Solve equation Ax=b for an upper triangular matrix A
+    x = array_fill(0, n, 0);
+    for (i=n-1; i > -1; i--) {
+      x[i] = A[i][n]/A[i][i];
+      for (k=i-1; k > -1; k--) {
+        A[k][n] -= A[k][i] * x[i];
+      }
+    }
+
+    return x.map(number => Math.floor(number));
   }
 }
