@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const DEFENDER_PLAYER_ID = 1;
 
@@ -143,8 +143,8 @@ function getDefenderMovement(data) {
 
     return { direction, velocity }
   } else {
-    return getBallApproachMovement(ballModel, playerModel);
-    // return getDefaultMovement(data);
+    // return getBallApproachMovement(ballModel, playerModel);
+    return getDefaultMovement(data);
   }
 
   return { direction, velocity };
