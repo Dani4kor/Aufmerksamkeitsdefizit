@@ -76,9 +76,9 @@ function getDefaultMovement(data) {
 function getSemiForwardMovement(data){
   let direction, velocity;
 
-  const playerModel = new DefenderPlayerModel(data); 
+  const playerModel = new DefenderPlayerModel(data);
   const forwardModel = new ForwardPlayerModel(data);
-  const ballStats = new DefenderBallModel(data);
+  const ballStats = new BallModel(data);
 
   ballTaget = {
     x: ballStats.x,
@@ -89,18 +89,18 @@ function getSemiForwardMovement(data){
     x : 354,
     y : 236.5
   }
-  
+
   forwardRange2ball = getRangeTo(forwardModel,  ballTaget)
   semiForwardRange2ball = getRangeTo(playerModel,  ballTaget)
-  
+
   if (forwardModel.x >= 256) {
     if (forwardRange2ball > 50 && semiForwardRange2ball > 45){
-      console.log("MOVE TO BALL") 
-      return getDefaultMovement(data);   
+      console.log("MOVE TO BALL")
+      return getDefaultMovement(data);
     }
     else if( forwardRange2ball > 50 && semiForwardRange2ball < 45){
       console.log("MOVE TO BALL")
-      return getDefaultMovement(data);  
+      return getDefaultMovement(data);
     }
     else {
       direction = degreeToPoint(playerModel, forwardModel);
@@ -115,7 +115,7 @@ function getSemiForwardMovement(data){
     return { direction, velocity };
   }
 }
-  
+
 
 function getDefenderMovement(data) {
   const playerModel = new DefenderPlayerModel(data);
@@ -123,29 +123,17 @@ function getDefenderMovement(data) {
 
   let direction, velocity;
 
-<<<<<<< HEAD
   if (ballModel.x >= MIDDLE_OF_FIELD_X) {
-
+    // go to defensive point
     const direction = degreeToPoint(playerModel, defenderPositionModel);
     const velocity = slowDownToTarget(playerModel, defenderPositionModel);
-=======
-  if (ballStats.x >= MIDDLE_OF_FIELD_X) {
-    // go to defensive point
-
-    const targetModel = {
-      x: DEFENDER_POSITION_X,
-      y: DEFENDER_POSITION_Y
-    };
-    const direction = degreeToPoint(playerModel, targetModel);
-    const velocity = slowDownToTarget(playerModel, targetModel);
 
     // console.log(`
     //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
     //   Position should be x:${DEFENDER_POSITION_X} y:${DEFENDER_POSITION_Y}
-    //   Range to target is ${getRangeTo(playerModel, targetModel)}
+    //   Range to target is ${getRangeTo(playerModel, defenderPositionModel)}
     //   Direction is ${direction} and velocity is ${velocity}
     // `);
->>>>>>> f20efb0fe85a060d7b5fc9936d93779d2e139764
 
     // console.log(`
     //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
@@ -176,11 +164,7 @@ function slowDownToTarget(player, target) {
   let velocity = 0;
 
   if (inRange(4, 3)) {
-<<<<<<< HEAD
-    // blank
-=======
     //console.log('Should perform silent turn')
->>>>>>> f20efb0fe85a060d7b5fc9936d93779d2e139764
   } else if (inRange(7.5, 0.625)) {
     velocity = 1;
   } else if (inRange(15, 1.25)) {
