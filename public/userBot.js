@@ -1,12 +1,15 @@
 const DEFENDER_PLAYER_ID = 1;
-const DEFENDER_POSITION_X = 250;
-const DEFENDER_POSITION_Y = 236;
 
 const FORWARD_PLAYER_ID = 0;
 const SEMIFORWARD_PLAYER_ID = 2;
 
 const MIDDLE_OF_FIELD_X = 354;
 const FIELD_END_X = 708;
+
+const defenderPositionModel = {
+  x: 125,
+  y: 236
+};
 
 
 
@@ -16,7 +19,7 @@ const FIELD_END_X = 708;
 
 
 
-function DefenderBallModel(data) {
+function BallModel(data) {
   const ballStats = getBallStats(data.ball, data.settings);
   this.x = ballStats.x;
   this.y = ballStats.y;
@@ -53,40 +56,34 @@ function getDefaultMovement(data) {
   const ballStop = getBallStats(ball, data.settings);
 
   return {
-    direction: Math.atan2(ballStop.y - currentPlayer.y, ballStop.x - currentPlayer.x - ball.settings.radius),
+    direction: Math.atan2(
+      ballStop.y - currentPlayer.y, ballStop.x - currentPlayer.x - ball.settings.radius
+    ),
     velocity: currentPlayer.velocity + data.settings.player.maxVelocityIncrement
   };
 }
 
 function getDefenderMovement(data) {
   const playerModel = new DefenderPlayerModel(data);
-  const ballStats = new DefenderBallModel(data);
+  const ballModel = new BallModel(data);
 
   let direction, velocity;
 
-  if (ballStats.x >= MIDDLE_OF_FIELD_X) {
-    // go to defencive point
+  if (ballModel.x >= MIDDLE_OF_FIELD_X) {
 
-    const targetModel = {
-      x: DEFENDER_POSITION_X,
-      y: DEFENDER_POSITION_Y
-    };
-    const direction = degreeToPoint(playerModel, targetModel);
-    const velocity = slowDownToTarget(playerModel, targetModel);
+    const direction = degreeToPoint(playerModel, defenderPositionModel);
+    const velocity = slowDownToTarget(playerModel, defenderPositionModel);
 
-    console.log(`
-      Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
-      Position should be x:${DEFENDER_POSITION_X} y:${DEFENDER_POSITION_Y}
-      Range to target is ${getRangeTo(playerModel, targetModel)}
-      Direction is ${direction} and velocity is ${velocity}
-    `);
+    // console.log(`
+    //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
+    //   Position should be x:${defenderPositionModel.x} y:${defenderPositionModel.y}
+    //   Range to target is ${getRangeTo(playerModel, defenderPositionModel)}
+    //   Direction is ${direction} and velocity is ${velocity}
+    // `);
 
-    return {
-      direction,
-      velocity
-    }
-
+    return { direction, velocity }
   } else {
+    // return getBallApproachMovement(ballModel, playerModel);
     return getDefaultMovement(data);
   }
 
@@ -102,11 +99,11 @@ function getDefenderMovement(data) {
 
 
 function slowDownToTarget(player, target) {
-  const inRange = isPlayerInRangeOf.bind(null, player, target);
+  const inRange = isInRangeOf.bind(null, player, target);
   let velocity = 0;
 
   if (inRange(4, 3)) {
-    console.log('Should perform silent turn')
+    // blank
   } else if (inRange(7.5, 0.625)) {
     velocity = 1;
   } else if (inRange(15, 1.25)) {
@@ -138,6 +135,41 @@ function getBallStats(ball, gameSettings) {
   return { stopTime, stopDistance, x, y };
 }
 
+function getBallApproachMovement(ballPosition, defenderActualPosition) {
+  const MIN_RADIUS = 50;
+  const { velocity } = ballPosition;
+  const calculatedRadius = velocity * 7;
+  const actualRadius = calculatedRadius > MIN_RADIUS ? calculatedRadius : MIN_RADIUS;
+
+  const defenderRadiusPosition = {
+    x: ballPosition.x - actualRadius,
+    y: ballPosition.y
+  };
+
+  if (isInRangeOf(defenderActualPosition, ballPosition, actualRadius, 5)) {
+    // start motion based on circle of actualRadius
+
+    /*
+    TODO:
+      1) построить касательную к точке назначения игрока на окружности (y = actualRadius.y, x=target.x)
+      2) построить касательную к положению игрока на радиусе
+      3) начать движение к пересечениям касательных
+    */
+  }
+
+  console.log(`
+    Approach radius is ${actualRadius};
+    Defender's radius position is x:${defenderRadiusPosition.x}, y:${defenderRadiusPosition.y}
+    Defender's actual position is x:${defenderActualPosition.x}, y:${defenderActualPosition.y}
+    Ball actual position is x:${ballPosition.x} y:${ballPosition.y}
+  `);
+
+  return {
+    direction: degreeToPoint(defenderActualPosition, { x: defenderRadiusPosition, y: ballPosition.y }),
+    velocity: slowDownToTarget(defenderActualPosition, { x: defenderRadiusPosition, y: ballPosition.y })
+  }
+}
+
 function getStopTime(ball) {
   return ball.velocity / ball.settings.moveDeceleration;
 }
@@ -146,23 +178,31 @@ function toRadian(degree) {
 	return (degree * 3.14) / 180;
 }
 
-function isPlayerInRangeOf(player, target, range, delta) {
+function isInRangeOf(player, target, range, delta) {
   const distance = getRangeTo(player, target);
   return distance < range + delta * 2;
 }
 
 function getRangeTo(player, target) {
-  return Math.sqrt( 
-    Math.pow(player.x-target.x, 2) + Math.pow(player.y-target.y, 2) 
+  return Math.sqrt(
+    Math.pow(player.x-target.x, 2) + Math.pow(player.y-target.y, 2)
   );
 }
 
-function degreeToPoint(player, targetModel) {
+function degreeToPoint(player, target) {
   return (
-    Math.atan2(targetModel.y - player.y, targetModel.x - player.x)
+    Math.atan2(target.y - player.y, target.x - player.x)
   )
 }
 
 
 
 onmessage = (e) => postMessage(getPlayerMove(e.data));
+
+
+
+class GeometricUtils {
+  static buildLineOnBasedOnTwoDots(first, second) {
+    // TODO: TBD
+  }
+}
