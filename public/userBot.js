@@ -31,6 +31,11 @@ function DefenderPlayerModel(data) {
   this.y = data.yourTeam.players[data.playerIndex].y;
 }
 
+function ForwardPlayerModel(data) {
+  this.x = data.yourTeam.players[0].x;
+  this.y = data.yourTeam.players[0].y;
+}
+
 
 
 // -----------------------------------------------------------------------
@@ -45,6 +50,8 @@ function getPlayerMove(data) {
   switch (data.playerIndex) {
     case DEFENDER_PLAYER_ID:
       return getDefenderMovement(data);
+    case SEMIFORWARD_PLAYER_ID:
+      return getSemiForwardMovement(data);
     default:
       return getDefaultMovement(data);
   }
@@ -63,16 +70,82 @@ function getDefaultMovement(data) {
   };
 }
 
+
+
+
+function getSemiForwardMovement(data){
+  let direction, velocity;
+
+  const playerModel = new DefenderPlayerModel(data); 
+  const forwardModel = new ForwardPlayerModel(data);
+  const ballStats = new DefenderBallModel(data);
+
+  ballTaget = {
+    x: ballStats.x,
+    y: ballStats.y
+  }
+
+  middleFiled = {
+    x : 354,
+    y : 236.5
+  }
+  
+  forwardRange2ball = getRangeTo(forwardModel,  ballTaget)
+  semiForwardRange2ball = getRangeTo(playerModel,  ballTaget)
+  
+  if (forwardModel.x >= 256) {
+    if (forwardRange2ball > 50 && semiForwardRange2ball > 45){
+      console.log("MOVE TO BALL") 
+      return getDefaultMovement(data);   
+    }
+    else if( forwardRange2ball > 50 && semiForwardRange2ball < 45){
+      console.log("MOVE TO BALL")
+      return getDefaultMovement(data);  
+    }
+    else {
+      direction = degreeToPoint(playerModel, forwardModel);
+      velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
+      console.log("MOVE TO FORWARD")
+      return { direction, velocity };
+    }
+  }
+  else {
+    direction = degreeToPoint(playerModel, middleFiled);
+    velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
+    return { direction, velocity };
+  }
+}
+  
+
 function getDefenderMovement(data) {
   const playerModel = new DefenderPlayerModel(data);
   const ballModel = new BallModel(data);
 
   let direction, velocity;
 
+<<<<<<< HEAD
   if (ballModel.x >= MIDDLE_OF_FIELD_X) {
 
     const direction = degreeToPoint(playerModel, defenderPositionModel);
     const velocity = slowDownToTarget(playerModel, defenderPositionModel);
+=======
+  if (ballStats.x >= MIDDLE_OF_FIELD_X) {
+    // go to defensive point
+
+    const targetModel = {
+      x: DEFENDER_POSITION_X,
+      y: DEFENDER_POSITION_Y
+    };
+    const direction = degreeToPoint(playerModel, targetModel);
+    const velocity = slowDownToTarget(playerModel, targetModel);
+
+    // console.log(`
+    //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
+    //   Position should be x:${DEFENDER_POSITION_X} y:${DEFENDER_POSITION_Y}
+    //   Range to target is ${getRangeTo(playerModel, targetModel)}
+    //   Direction is ${direction} and velocity is ${velocity}
+    // `);
+>>>>>>> f20efb0fe85a060d7b5fc9936d93779d2e139764
 
     // console.log(`
     //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
@@ -103,7 +176,11 @@ function slowDownToTarget(player, target) {
   let velocity = 0;
 
   if (inRange(4, 3)) {
+<<<<<<< HEAD
     // blank
+=======
+    //console.log('Should perform silent turn')
+>>>>>>> f20efb0fe85a060d7b5fc9936d93779d2e139764
   } else if (inRange(7.5, 0.625)) {
     velocity = 1;
   } else if (inRange(15, 1.25)) {
