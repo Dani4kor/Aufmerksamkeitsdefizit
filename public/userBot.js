@@ -206,16 +206,28 @@ function getBallApproachMovement(ballPosition, defenderActualPosition) {
     y: ballPosition.y
   };
 
-  if (isInRangeOf(defenderActualPosition, ballPosition, actualRadius, 5)) {
-    // start motion based on circle of actualRadius
+  /*
+  TODO:
+    1) определить функцию прямой между игроком и мячом
+        const [aTemp, bTemp] = GeomUtils.getLinearFunctionCooficients(defenderActualPosition, ballPosition)
 
-    /*
-    TODO:
-      1) построить касательную к точке назначения игрока на окружности (y = actualRadius.y, x=target.x)
-      2) построить касательную к положению игрока на радиусе
-      3) начать движение к пересечениям касательных
-    */
-  }
+    2) определить координаты пересечения линии игрок-мяч с радиусом вокруг мяча
+        TBD
+
+    3) определить функцию прямой перпендикулярную прямой между мячом и игроком
+        const perpPlayerToBall = GeomUtils.getPerpendicularLinearFunctionCooficients(aTemp, bTemp, dot);
+        const aPB = perpPlayerToBall.a;
+        const bPB = perpPlayerToBall.b;
+
+    4) определить точку "пункт назначения" -- x = ball.x - actualRadius; y = ball.y;
+
+    5) провести прямую через точку выше -- уравнение будет равно y = const, где const = y из предыдущего пункта
+
+    6) найти х для функции из пункта (3) подставив y из пункта (5) -- это будет точка пересечения прямых и цель движения
+
+    7) начать движение к точке с максимальной скоростью
+
+  */
 
   console.log(
     GeomUtils.getTextRepresentationOfLinearFunction(ballPosition, defenderActualPosition)
@@ -266,10 +278,15 @@ onmessage = (e) => postMessage(getPlayerMove(e.data));
 
 
 class GeomUtils {
+
   static getLinearFunctionBasedOnTwoDots(first, second) {
     const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
-
     return GeomUtils.getYofLinearFunction.bind(null, a, b);
+  }
+
+  static getLinearFunctionCooficients(firstDot, secondDot) {
+    const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
+    return { a, b };
   }
 
   static getLinearFunctionPerpendicularInDot(a, b, dot) {
@@ -277,6 +294,15 @@ class GeomUtils {
     const $b = dot.y - $a * dot.x;
     console.log(`Func is: y = ${$a}x + ${$b}`);
     return GeomUtils.getYofLinearFunction.bind(null, $a, $b);
+  }
+
+  static getPerpendicularLinearFunctionCooficients(a, b, dot) {
+    const $a = -1 / a;
+    const $b = dot.y - $a * dot.x;
+    return {
+      a: $a,
+      b: $b
+    };
   }
 
   static getYofLinearFunction(a, b, x) {
