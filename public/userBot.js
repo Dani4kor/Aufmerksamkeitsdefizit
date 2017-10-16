@@ -13,7 +13,7 @@ const defenderPositionModel = {
   y: 236
 };
 
-const { pow, sqrt, cos, acos, sin } = Math;
+const { pow, sqrt, cos, acos, sin, round, abs } = Math;
 
 
 
@@ -43,13 +43,14 @@ function ForwardPlayerModel(data) {
 
 
 // -----------------------------------------------------------------------
-// -------------------------------- UTILS --------------------------------
+// -------------------------------- MOVEMENT -----------------------------
 // -----------------------------------------------------------------------
 
 
 
 function getPlayerMove(data) {
-  // console.log(data);
+  const playerModel = new DefenderPlayerModel(data);
+  const ballModel = new BallModel(data);
 
   switch (data.playerIndex) {
     case DEFENDER_PLAYER_ID:
@@ -57,7 +58,7 @@ function getPlayerMove(data) {
     case SEMIFORWARD_PLAYER_ID:
       return getSemiForwardMovement(data);
     default:
-      return getDefaultMovement(data);
+      return getBallApproachMovement(data, ballModel, playerModel);
   }
 }
 
@@ -73,9 +74,6 @@ function getDefaultMovement(data) {
     velocity: currentPlayer.velocity + data.settings.player.maxVelocityIncrement
   };
 }
-
-
-
 
 function getSemiForwardMovement(data){
   let direction, velocity;
@@ -99,10 +97,10 @@ function getSemiForwardMovement(data){
 
   if (forwardModel.x >= 256) {
     if (forwardRange2ball > 50 && semiForwardRange2ball > 45){
-      return getDefaultMovement(data);
+      return getBallApproachMovement(data, ballStats, playerModel);
     }
     else if( forwardRange2ball > 50 && semiForwardRange2ball < 45){
-      return getDefaultMovement(data);
+      return getBallApproachMovement(data, ballStats, playerModel);
     }
     else {
       const direction = degreeToPoint(playerModel, forwardModel);
@@ -121,7 +119,6 @@ function getSemiForwardMovement(data){
 function getDefenderMovement(data) {
   const playerModel = new DefenderPlayerModel(data);
   const ballModel = new BallModel(data);
-
   let direction, velocity;
 
   if (ballModel.x >= MIDDLE_OF_FIELD_X) {
@@ -129,27 +126,94 @@ function getDefenderMovement(data) {
     const direction = degreeToPoint(playerModel, defenderPositionModel);
     const velocity = slowDownToTarget(playerModel, defenderPositionModel);
 
-    // console.log(`
-    //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
-    //   Position should be x:${DEFENDER_POSITION_X} y:${DEFENDER_POSITION_Y}
-    //   Range to target is ${getRangeTo(playerModel, defenderPositionModel)}
-    //   Direction is ${direction} and velocity is ${velocity}
-    // `);
-
-    // console.log(`
-    //   Defeneder coordinates is x:${playerModel.x} y:${playerModel.y}
-    //   Position should be x:${defenderPositionModel.x} y:${defenderPositionModel.y}
-    //   Range to target is ${getRangeTo(playerModel, defenderPositionModel)}
-    //   Direction is ${direction} and velocity is ${velocity}
-    // `);
-
     return { direction, velocity }
-  } else {
-    return getBallApproachMovement(ballModel, playerModel);
-    // return getDefaultMovement(data);
   }
 
-  return { direction, velocity };
+  return getBallApproachMovement(data, ballModel, playerModel);
+}
+
+function getBallApproachMovement(data, ball, player) {
+  const MIN_RADIUS = 30;
+  const { velocity } = ball;
+  const calculatedRadius = velocity * 7;
+  const actualRadius = calculatedRadius > MIN_RADIUS ? calculatedRadius : MIN_RADIUS;
+
+  const pointOfDestination = {
+    x: ball.x - actualRadius,
+    y: ball.y
+  };
+
+  // (1): cooficients of line function between player and the ball
+  const [aPlayerBall, bPlayerBall] = GeomUtils.getLinearFunctionCooficients(
+    player, ball
+  );
+
+  // (2): coordinates of crossing between line "player-ball" and the radius around the ball
+  let aLarge, bLarge;
+  if (player.x > ball.x && player.y > ball.y) {
+    // case #1
+    aLarge = player.x - ball.x;
+    bLarge = player.y - ball.y;
+  } else if (player.x > ball.x && player.y < ball.y) {
+    // case #2
+    aLarge = ball.y - player.y;
+    bLarge = player.x - ball.x;
+  } else if (player.x < ball.x && player.y < ball.y) {
+    // case #3
+    aLarge = ball.y - player.y;
+    bLarge = ball.x - player.x;
+  } else if (player.x < ball.x && player.y > ball.y) {
+    // case #4
+    aLarge = ball.x - player.x;
+    bLarge = player.y - ball.y;
+  }
+  const cLarge = sqrt(pow(aLarge, 2) + pow(bLarge, 2));
+  const alphaInRadians = acos(aLarge/cLarge);
+
+  const aSmall = actualRadius * cos(alphaInRadians);
+  const bSmall = actualRadius * sin(alphaInRadians);
+  let x,y;
+  if (player.x > ball.x && player.y > ball.y) {
+    // case #1
+    x = ball.x + aSmall;
+    y = ball.y + bSmall;
+  } else if (player.x > ball.x && player.y < ball.y) {
+    // case #2
+    x = ball.x + bSmall;
+    y = ball.y - aSmall;
+  } else if (player.x < ball.x && player.y < ball.y) {
+    // case #3
+    x = ball.x - bSmall;
+    y = ball.y - aSmall;
+  } else if (player.x < ball.x && player.y > ball.y) {
+    // case #4
+    x = ball.x - aSmall;
+    y = ball.y + bSmall;
+  }
+  const crossing = {x,y};
+
+  // find cooficients of the line function that is perpendicular to function (1) and
+  // crosses the dot from (2)
+  const [aCrossPlayerBall, bCrossPlayerBall] = GeomUtils.getPerpendicularLinearFunctionCooficients(
+    aPlayerBall, bPlayerBall, crossing
+  );
+
+  // find out the X coordinates of the point-to-move
+  const pointToMove = {
+    x: ball.x - actualRadius,
+    y: GeomUtils.getYofLinearFunction(aCrossPlayerBall, bCrossPlayerBall, ball.x - actualRadius)
+  }
+
+  // If already near the point -- go straight to the ball
+  if (isInRangeOf(player, pointToMove, MIN_RADIUS, round(MIN_RADIUS/5))) {
+    return getDefaultMovement(data);
+  } else {
+    // or go to point if still far from it
+    return {
+      direction: Math.atan2(pointToMove.y - player.y, pointToMove.x - player.x),
+      velocity: 999
+    };
+  }
 }
 
 
@@ -197,120 +261,6 @@ function getBallStats(ball, gameSettings) {
   return { stopTime, stopDistance, x, y };
 }
 
-function getBallApproachMovement(ball, player) {
-  const MIN_RADIUS = 50;
-  const { velocity } = ball;
-  const calculatedRadius = velocity * 7;
-  const actualRadius = calculatedRadius > MIN_RADIUS ? calculatedRadius : MIN_RADIUS;
-
-  const pointOfDestination = {
-    x: ball.x - actualRadius,
-    y: ball.y
-  };
-
-  // (1): cooficients of line function between player and the ball
-  const [aPlayerBall, bPlayerBall] = GeomUtils.getLinearFunctionCooficients(
-    player, ball
-  );
-
-  // (2): coordinates of crossing between line "player-ball" and the radius around the ball
-  let aLarge, bLarge;
-  if (player.x > ball.x && player.y > ball.y) {
-    // case #1
-    aLarge = player.x - ball.x;
-    bLarge = player.y - ball.y;
-  } else if (player.x > ball.x && player.y < ball.y) {
-    // case #2
-    aLarge = ball.y - player.y;
-    bLarge = player.x - ball.x;
-  } else if (player.x < ball.x && player.y < ball.y) {
-    // case #3
-    aLarge = ball.y - player.y;
-    bLarge = ball.x - player.x;
-  } else if (player.x < ball.x && player.y > ball.y) {
-    // case #4
-    aLarge = ball.x - player.x;
-    bLarge = player.y - ball.y;
-  }
-  const cLarge = sqrt(pow(aLarge, 2) + pow(bLarge, 2));
-  const alphaInRadians = acos(aLarge/cLarge);
-
-  // TODO: find aSmall, bSmall using the alpha and cSmall
-  const aSmall = actualRadius * cos(alphaInRadians);
-  const bSmall = actualRadius * sin(alphaInRadians);
-  let x,y;
-  if (player.x > ball.x && player.y > ball.y) {
-    // case #1
-    x = ball.x + aSmall;
-    y = ball.y + bSmall;
-  } else if (player.x > ball.x && player.y < ball.y) {
-    // case #2
-    x = ball.x + bSmall;
-    y = ball.y - aSmall;
-  } else if (player.x < ball.x && player.y < ball.y) {
-    // case #3
-    x = ball.x - bSmall;
-    y = ball.y - aSmall;
-  } else if (player.x < ball.x && player.y > ball.y) {
-    // case #4
-    x = ball.x - aSmall;
-    y = ball.y + bSmall;
-  }
-  const crossing = {x,y};
-
-  // find cooficients of the line function that is perpendicular to function (1) and
-  // crosses the dot from (2)
-  const [aCrossPlayerBall, bCrossPlayerBall] = GeomUtils.getPerpendicularLinearFunctionCooficients(
-    aPlayerBall, bPlayerBall, crossing
-  );
-
-  // find out the X coordinates of the point-to-move
-  const pointToMove = {
-    x: ball.x - actualRadius,
-    y: GeomUtils.getYofLinearFunction(aCrossPlayerBall, bCrossPlayerBall, ball.x - actualRadius)
-  }
-
-  // Move to the point!
-
-  //  - ball.settings.radius
-  return {
-    direction: Math.atan2(
-      pointToMove.y - player.y, pointToMove.x - player.x
-    ),
-    velocity: 999
-  };
-
-
-  /*
-    1) определить функцию прямой между игроком и мячом
-    2) определить координаты пересечения линии игрок-мяч с радиусом вокруг мяча
-    3) определить функцию прямой перпендикулярную прямой между мячом и игроком
-        const perpPlayerToBall = GeomUtils.getPerpendicularLinearFunctionCooficients(aTemp, bTemp, dot);
-        const aPB = perpPlayerToBall.a;
-        const bPB = perpPlayerToBall.b;
-    4) определить точку "пункт назначения" -- x = ball.x - actualRadius; y = ball.y;
-    5) провести прямую через точку выше -- уравнение будет равно y = const, где const = y из предыдущего пункта
-    6) найти х для функции из пункта (3) подставив y из пункта (5) -- это будет точка пересечения прямых и цель движения
-    7) начать движение к точке с максимальной скоростью
-  */
-
-  // console.log(
-  //   GeomUtils.getTextRepresentationOfLinearFunction(ball, player)
-  // );
-
-  // console.log(`
-  //   Approach radius is ${actualRadius};
-  //   Defender's radius position is x:${pointOfDestination.x}, y:${pointOfDestination.y}
-  //   Defender's actual position is x:${player.x}, y:${player.y}
-  //   Ball actual position is x:${ball.x} y:${ball.y}
-  // `);
-
-  // return {
-  //   direction: degreeToPoint(player, { x: pointOfDestination, y: ball.y }),
-  //   velocity: slowDownToTarget(player, { x: pointOfDestination, y: ball.y })
-  // }
-}
-
 function getStopTime(ball) {
   return ball.velocity / ball.settings.moveDeceleration;
 }
@@ -340,14 +290,7 @@ function degreeToPoint(player, target) {
   )
 }
 
-
-
-onmessage = (e) => postMessage(getPlayerMove(e.data));
-
-
-
 class GeomUtils {
-
   static getLinearFunctionBasedOnTwoDots(first, second) {
     const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
     return GeomUtils.getYofLinearFunction.bind(null, a, b);
@@ -386,8 +329,6 @@ class GeomUtils {
   }
 
   static gauss(A, x) {
-    const abs = Math.abs;
-
     function array_fill(i, n, v) {
       const a = [];
       for (; i < n; i++) {
@@ -449,3 +390,7 @@ class GeomUtils {
     return x.map(number => Math.floor(number));
   }
 }
+
+
+
+onmessage = (e) => postMessage(getPlayerMove(e.data));
