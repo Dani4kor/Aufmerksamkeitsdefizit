@@ -31,10 +31,11 @@ function BallModel(data) {
   this.velocity = data.ball.velocity;
 }
 
-function DefenderPlayerModel(data) {
-  this.x = data.yourTeam.players[data.playerIndex].x;
-  this.y = data.yourTeam.players[data.playerIndex].y;
+
+function PlayerModel(data) {
+  return data.yourTeam.players[data.playerIndex];
 }
+
 
 function ForwardPlayerModel(data) {
   this.x = data.yourTeam.players[0].x;
@@ -50,8 +51,7 @@ function ForwardPlayerModel(data) {
 
 
 function getPlayerMove(data) {
-  const playerModel = new DefenderPlayerModel(data);
-  const ballModel = new BallModel(data);
+  // console.log(data);
 
   switch (data.playerIndex) {
     case DEFENDER_PLAYER_ID:
@@ -59,9 +59,10 @@ function getPlayerMove(data) {
     case SEMIFORWARD_PLAYER_ID:
       return getSemiForwardMovement(data);
     default:
-      return getBallApproachMovement(data, ballModel, playerModel);
+      return getBallApproachMovement(data);
   }
 }
+
 
 function getDefaultMovement(data) {
   const currentPlayer = data.yourTeam.players[ data.playerIndex ];
@@ -76,10 +77,11 @@ function getDefaultMovement(data) {
   };
 }
 
+
 function getSemiForwardMovement(data){
   let direction, velocity;
 
-  const playerModel = new DefenderPlayerModel(data);
+  const playerModel = new PlayerModel(data);
   const forwardModel = new ForwardPlayerModel(data);
   const ballStats = new BallModel(data);
 
@@ -105,124 +107,70 @@ function getSemiForwardMovement(data){
     }
   else {
     //console.log("PLAY SAVE")
-    return getBallApproachMovement(data, ballStats, playerModel);
+    return getBallApproachMovement(data);
   }
+}
+
+
+function getBallApproachMovement(data) {
+  const CORRIDOR_WIDTH = 50;
+  const { playerIndex } = data;
+  const ballStop = getBallStats(data.ball, data.settings);
+  const player = new PlayerModel(data);
+  const loggable = false;
+
+  loggable && console.log(
+    `
+    ************************
+    Player #${playerIndex} at x:${player.x} y:${player.y}
+    Ball at x:${ballStop.x}, y:${ballStop.y}
+    CORRIDOR_WIDTH: ${CORRIDOR_WIDTH}`
+  );
+
+  if (player.x <= ballStop.x - CORRIDOR_WIDTH) {
+    loggable && console.log(`far from corridor -- approaching to the ballStop`);
+    return getDefaultMovement(data);
+  }
+
+  if (ballStop.x - CORRIDOR_WIDTH <= player.x && player.x <= ballStop.x) {
+    const distanceToBall = sqrt(pow(ballStop.x - player.x, 2) + pow(ballStop.y - player.y, 2));
+    const target = {
+      x: ballStop.x - distanceToBall / 4,
+      y: ballStop.y
+    };
+
+    loggable && console.log(`in corridor -- approaching to x:${target.x}, y:${target.y}`);
+    return moveToPoint(player, target);
+  }
+
+  const target = {
+    x: ballStop.x,
+    y: (ballStop.y < player.y) ? (ballStop.y + CORRIDOR_WIDTH) : (ballStop.y - CORRIDOR_WIDTH)
+  };
+
+  loggable && console.log(`further then ball, moving to x:${target.x}, y:${target.y}`);
+  return moveToPoint(player, target);
 }
 
 
 function getDefenderMovement(data) {
-  const playerModel = new DefenderPlayerModel(data);
-  const ballModel = new BallModel(data);
-  let direction, velocity;
+  const player = new PlayerModel(data);
+  const ball = new BallModel(data);
 
-  if (ballModel.x >= DEFENDING_ZONE_X) {
-    // go to defensive point
-    const defense = {
+
+  if (ball.x >= DEFENDING_ZONE_X) {
+    const pointOfDefence = {
       x: 100,
-      y: ballModel.y
-    }
+      y: ball.y
+    };
 
-    const { direction } = moveToPoint(playerModel, defense);
+    const { direction } = moveToPoint(player, pointOfDefence);
     const velocity = 2.5;
 
-    return { direction, velocity }
+    return { direction, velocity };
   }
 
-  if (ballModel.x > playerModel.x) {
-    return getDefaultMovement(data);
-  }
-
-  return getBallApproachMovement(data, ballModel, playerModel);
-}
-
-function getBallApproachMovement(data, ball, player) {
-  const MIN_RADIUS = 40;
-  const { velocity } = ball;
-  const calculatedRadius = round(velocity * 10);
-  let actualRadius;
-
-  if (ball.x < player.x && calculatedRadius > MIN_RADIUS) {
-    actualRadius = calculatedRadius;
-  } else {
-    actualRadius = MIN_RADIUS;
-  }
-
-  // console.log(
-  //   `
-  //     Player #${data.playerIndex} at x:${player.x} y:${player.y}
-  //     Ball at x:${ball.x} y:${ball.y}
-  //     actualRadius:${actualRadius}
-  //     MIN_RADIUS:${MIN_RADIUS}
-  //     is player in range: ${isInRangeOf(player, ball, round(MIN_RADIUS*1.5), 0)}
-  //     ----
-  //     positions delta x:${Math.abs(player.x-ball.x)}
-  //     positions delta y:${Math.abs(player.y-ball.y)}
-  //   `
-  // )
-
-  const pointOfDestination = {
-    x: ball.x - actualRadius,
-    y: ball.y
-  };
-
-  // (1): cooficients of line function between player and the ball
-  const [aPlayerBall, bPlayerBall] = GeomUtils.getLinearFunctionCooficients(
-    player, ball
-  );
-
-  // (2): coordinates of crossing between line "player-ball" and the radius around the ball
-  const aLarge = ball.x - player.x;
-  const bLarge = ball.y - player.y;
-  const cLarge = sqrt(pow(aLarge, 2) + pow(bLarge, 2));
-  const alphaInRadians = acos(aLarge/cLarge);
-
-  const aSmall = actualRadius * cos(alphaInRadians);
-  const bSmall = actualRadius * sin(alphaInRadians);
-  let x,y;
-  if (player.x > ball.x && player.y > ball.y) {
-    // case #1
-    x = ball.x + aSmall;
-    y = ball.y + bSmall;
-  } else if (player.x > ball.x && player.y < ball.y) {
-    // case #2
-    x = ball.x + bSmall;
-    y = ball.y - aSmall;
-  } else if (player.x < ball.x && player.y < ball.y) {
-    // case #3
-    x = ball.x - bSmall;
-    y = ball.y - aSmall;
-  } else if (player.x < ball.x && player.y > ball.y) {
-    // case #4
-    x = ball.x - aSmall;
-    y = ball.y + bSmall;
-  }
-  const crossing = {x,y};
-
-  // find cooficients of the line function that is perpendicular to function (1) and
-  // crosses the dot from (2)
-  const [aCrossPlayerBall, bCrossPlayerBall] = GeomUtils.getPerpendicularLinearFunctionCooficients(
-    aPlayerBall, bPlayerBall, crossing
-  );
-
-  // find out the X coordinates of the point-to-move
-  const pointToMove = {
-    x: ball.x - actualRadius,
-    y: GeomUtils.getYofLinearFunction(aCrossPlayerBall, bCrossPlayerBall, ball.x - actualRadius)
-  }
-
-  // If already near the point -- go straight to the ball
-
-  // console.log(`Player #${data.playerIndex} distance to PTM: ${getRangeTo(player, pointToMove)}`);
-  if (isInRangeOf(player, pointToMove, MIN_RADIUS, 5)) {
-    // console.log(`Player #${data.playerIndex} is in range of default movement!`);
-    return getDefaultMovement(data);
-  } else {
-    // or go to point if still far from it
-    return {
-      direction: Math.atan2(pointToMove.y - player.y, pointToMove.x - player.x),
-      velocity: 999
-    };
-  }
+  return getBallApproachMovement(data);
 }
 
 
@@ -232,29 +180,6 @@ function getBallApproachMovement(data, ball, player) {
 // -----------------------------------------------------------------------
 
 
-
-function slowDownToTarget(player, target) {
-  const inRange = isInRangeOf.bind(null, player, target);
-  let velocity = 0;
-
-  if (inRange(4, 3)) {
-    //console.log('Should perform silent turn')
-  } else if (inRange(7.5, 0.625)) {
-    velocity = 1;
-  } else if (inRange(15, 1.25)) {
-    velocity = 2;
-  } else if (inRange(30, 2.5)) {
-    velocity = 3;
-  } else if (inRange(60, 5)) {
-    velocity = 4;
-  } else if (inRange(100, 10)) {
-    velocity = 5;
-  } else {
-    velocity = 6;
-  }
-
-  return velocity;
-}
 
 function getBallStats(ball, gameSettings) {
   const stopTime = getStopTime(ball);
@@ -298,97 +223,15 @@ function degreeToPoint(player, target) {
 }
 
 function moveToPoint(player, target) {
+  const direction = Math.atan2(target.y - player.y, target.x - player.x);
   return {
-    direction: Math.atan2(target.y - player.y, target.x - player.x),
-    velocity: 999
-  };
+    direction,
+    velocity: speedTurn(player.direction, direction) ? 999 : 2.5
+  }
 }
 
-
-class GeomUtils {
-  static getLinearFunctionBasedOnTwoDots(first, second) {
-    const [a,b] = GeomUtils.gauss([ [first.x, 1, first.y], [second.x, 1, second.y] ]);
-    return GeomUtils.getYofLinearFunction.bind(null, a, b);
-  }
-
-  static getLinearFunctionCooficients(firstDot, secondDot) {
-    return GeomUtils.gauss(
-      [ [firstDot.x, 1, firstDot.y], [secondDot.x, 1, secondDot.y] ]
-    );
-  }
-
-  static getLinearFunctionPerpendicularInDot(a, b, dot) {
-    const $a = -1 / a;
-    const $b = dot.y - $a * dot.x;
-    console.log(`Func is: y = ${$a}x + ${$b}`);
-    return GeomUtils.getYofLinearFunction.bind(null, $a, $b);
-  }
-
-  static getPerpendicularLinearFunctionCooficients(a, b, dot) {
-    const $a = -1 / a;
-    const $b = dot.y - $a * dot.x;
-    return [$a, $b];
-  }
-
-  static getYofLinearFunction(a, b, x) {
-    return a*x + b;
-  }
-
-  static getXofLinearFunction(a, b, y) {
-    // y = ax + b
-    // x = (y-b)/a
-    return (y-b) / a;
-  }
-
-  static getTextRepresentationOfLinearFunction(first, second) {
-    const [a,b] = GeomUtils.gauss([ [first.x, 1, first.y], [second.x, 1, second.y] ]);
-    return `y = ${a}x + ${b}`
-  }
-
-  static gauss(A) {
-    var n = A.length;
-
-    for (var i=0; i<n; i++) {
-        // Search for maximum in this column
-        var maxEl = Math.abs(A[i][i]);
-        var maxRow = i;
-        for(var k=i+1; k<n; k++) {
-            if (Math.abs(A[k][i]) > maxEl) {
-                maxEl = Math.abs(A[k][i]);
-                maxRow = k;
-            }
-        }
-
-        // Swap maximum row with current row (column by column)
-        for (var k=i; k<n+1; k++) {
-            var tmp = A[maxRow][k];
-            A[maxRow][k] = A[i][k];
-            A[i][k] = tmp;
-        }
-
-        // Make all rows below this one 0 in current column
-        for (k=i+1; k<n; k++) {
-            var c = -A[k][i]/A[i][i];
-            for(var j=i; j<n+1; j++) {
-                if (i==j) {
-                    A[k][j] = 0;
-                } else {
-                    A[k][j] += c * A[i][j];
-                }
-            }
-        }
-    }
-
-    // Solve equation Ax=b for an upper triangular matrix A
-    var x= new Array(n);
-    for (var i=n-1; i>-1; i--) {
-        x[i] = A[i][n]/A[i][i];
-        for (var k=i-1; k>-1; k--) {
-            A[k][n] -= A[k][i] * x[i];
-        }
-    }
-    return x;
-  }
+function speedTurn(actual, calculated) {
+  return actual-1 < calculated && calculated < actual+1;
 }
 
 
