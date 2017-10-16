@@ -287,6 +287,14 @@ function degreeToPoint(player, target) {
   )
 }
 
+function moveToPoint(player, target) {
+  return {
+    direction: Math.atan2(target.y - player.y, target.x - player.x),
+    velocity: 999
+  };
+}
+
+
 class GeomUtils {
   static getLinearFunctionBasedOnTwoDots(first, second) {
     const [a,b] = GeomUtils.gauss([ [first.x, 1, first.y], [second.x, 1, second.y] ]);
