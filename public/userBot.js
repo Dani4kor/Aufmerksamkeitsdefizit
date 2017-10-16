@@ -135,7 +135,13 @@ function getBallApproachMovement(data, ball, player) {
   const MIN_RADIUS = 40;
   const { velocity } = ball;
   const calculatedRadius = round(velocity * 10);
-  const actualRadius = calculatedRadius > MIN_RADIUS ? calculatedRadius : MIN_RADIUS;
+  let actualRadius;
+
+  if (ball.x < player.x && calculatedRadius > MIN_RADIUS) {
+    actualRadius = calculatedRadius;
+  } else {
+    actualRadius = MIN_RADIUS;
+  }
 
   // console.log(
   //   `
