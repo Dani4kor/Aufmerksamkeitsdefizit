@@ -6,6 +6,7 @@ const FORWARD_PLAYER_ID = 0;
 const SEMIFORWARD_PLAYER_ID = 2;
 
 const MIDDLE_OF_FIELD_X = 354;
+const DEFENDING_ZONE_X = 300;
 const FIELD_END_X = 708;
 
 const defenderPositionModel = {
@@ -55,8 +56,8 @@ function getPlayerMove(data) {
   switch (data.playerIndex) {
     case DEFENDER_PLAYER_ID:
       return getDefenderMovement(data);
-    // case SEMIFORWARD_PLAYER_ID:
-    //   return getSemiForwardMovement(data);
+    case SEMIFORWARD_PLAYER_ID:
+      return getSemiForwardMovement(data);
     default:
       return getBallApproachMovement(data, ballModel, playerModel);
   }
@@ -121,10 +122,15 @@ function getDefenderMovement(data) {
   const ballModel = new BallModel(data);
   let direction, velocity;
 
-  if (ballModel.x >= MIDDLE_OF_FIELD_X) {
+  if (ballModel.x >= DEFENDING_ZONE_X) {
     // go to defensive point
-    const direction = degreeToPoint(playerModel, defenderPositionModel);
-    const velocity = slowDownToTarget(playerModel, defenderPositionModel);
+    const defense = {
+      x: 100,
+      y: ballModel.y
+    }
+
+    const { direction } = moveToPoint(playerModel, defense);
+    const velocity = 2.5;
 
     return { direction, velocity }
   }
