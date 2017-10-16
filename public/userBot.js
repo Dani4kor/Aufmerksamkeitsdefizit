@@ -128,6 +128,10 @@ function getDefenderMovement(data) {
     return { direction, velocity }
   }
 
+  if (ballModel.x > playerModel.x) {
+    return getDefaultMovement(data);
+  }
+
   return getBallApproachMovement(data, ballModel, playerModel);
 }
 
