@@ -83,7 +83,7 @@ function getSemiForwardMovement(data){
   const forwardModel = new ForwardPlayerModel(data);
   const ballStats = new BallModel(data);
 
-  const ballTaget = {
+  const ballTarget = {
     x: ballStats.x,
     y: ballStats.y
   }
@@ -93,26 +93,19 @@ function getSemiForwardMovement(data){
     y : 236.5
   }
 
-  const forwardRange2ball = getRangeTo(forwardModel,  ballTaget)
-  const semiForwardRange2ball = getRangeTo(playerModel,  ballTaget)
+  const forwardRange2ball = getRangeTo(forwardModel,  ballTarget)
+  const semiForwardRange2ball = getRangeTo(playerModel,  ballTarget)
 
   if (forwardModel.x >= 256) {
-    if (forwardRange2ball > 50 && semiForwardRange2ball > 45){
-      return getBallApproachMovement(data, ballStats, playerModel);
-    }
-    else if( forwardRange2ball > 50 && semiForwardRange2ball < 45){
-      return getBallApproachMovement(data, ballStats, playerModel);
-    }
-    else {
-      const direction = degreeToPoint(playerModel, forwardModel);
+      const direction = degreeToPoint(playerModel, ballTarget);
       const velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
+
+      //console.log("MOVE TO BALLFORWARD")
       return { direction, velocity };
     }
-  }
   else {
-    const direction = degreeToPoint(playerModel, middleFiled);
-    const velocity = data.settings.player.maxVelocity + data.settings.player.maxVelocityIncrement
-    return { direction, velocity };
+    //console.log("PLAY SAVE")
+    return getBallApproachMovement(data, ballStats, playerModel);
   }
 }
 
