@@ -55,8 +55,8 @@ function getPlayerMove(data) {
   switch (data.playerIndex) {
     case DEFENDER_PLAYER_ID:
       return getDefenderMovement(data);
-    case SEMIFORWARD_PLAYER_ID:
-      return getSemiForwardMovement(data);
+    // case SEMIFORWARD_PLAYER_ID:
+    //   return getSemiForwardMovement(data);
     default:
       return getBallApproachMovement(data, ballModel, playerModel);
   }
@@ -133,10 +133,23 @@ function getDefenderMovement(data) {
 }
 
 function getBallApproachMovement(data, ball, player) {
-  const MIN_RADIUS = 30;
+  const MIN_RADIUS = 40;
   const { velocity } = ball;
-  const calculatedRadius = velocity * 7;
+  const calculatedRadius = round(velocity * 10);
   const actualRadius = calculatedRadius > MIN_RADIUS ? calculatedRadius : MIN_RADIUS;
+
+  // console.log(
+  //   `
+  //     Player #${data.playerIndex} at x:${player.x} y:${player.y}
+  //     Ball at x:${ball.x} y:${ball.y}
+  //     actualRadius:${actualRadius}
+  //     MIN_RADIUS:${MIN_RADIUS}
+  //     is player in range: ${isInRangeOf(player, ball, round(MIN_RADIUS*1.5), 0)}
+  //     ----
+  //     positions delta x:${Math.abs(player.x-ball.x)}
+  //     positions delta y:${Math.abs(player.y-ball.y)}
+  //   `
+  // )
 
   const pointOfDestination = {
     x: ball.x - actualRadius,
@@ -149,24 +162,8 @@ function getBallApproachMovement(data, ball, player) {
   );
 
   // (2): coordinates of crossing between line "player-ball" and the radius around the ball
-  let aLarge, bLarge;
-  if (player.x > ball.x && player.y > ball.y) {
-    // case #1
-    aLarge = player.x - ball.x;
-    bLarge = player.y - ball.y;
-  } else if (player.x > ball.x && player.y < ball.y) {
-    // case #2
-    aLarge = ball.y - player.y;
-    bLarge = player.x - ball.x;
-  } else if (player.x < ball.x && player.y < ball.y) {
-    // case #3
-    aLarge = ball.y - player.y;
-    bLarge = ball.x - player.x;
-  } else if (player.x < ball.x && player.y > ball.y) {
-    // case #4
-    aLarge = ball.x - player.x;
-    bLarge = player.y - ball.y;
-  }
+  const aLarge = ball.x - player.x;
+  const bLarge = ball.y - player.y;
   const cLarge = sqrt(pow(aLarge, 2) + pow(bLarge, 2));
   const alphaInRadians = acos(aLarge/cLarge);
 
@@ -205,7 +202,10 @@ function getBallApproachMovement(data, ball, player) {
   }
 
   // If already near the point -- go straight to the ball
-  if (isInRangeOf(player, pointToMove, MIN_RADIUS, round(MIN_RADIUS/5))) {
+
+  // console.log(`Player #${data.playerIndex} distance to PTM: ${getRangeTo(player, pointToMove)}`);
+  if (isInRangeOf(player, pointToMove, MIN_RADIUS, 5)) {
+    // console.log(`Player #${data.playerIndex} is in range of default movement!`);
     return getDefaultMovement(data);
   } else {
     // or go to point if still far from it
@@ -279,9 +279,7 @@ function isInRangeOf(player, target, range, delta) {
 }
 
 function getRangeTo(player, target) {
-  return Math.sqrt(
-    Math.pow(player.x-target.x, 2) + Math.pow(player.y-target.y, 2)
-  );
+  return sqrt(pow(target.x-player.x, 2) + pow(target.y-player.y, 2));
 }
 
 function degreeToPoint(player, target) {
@@ -292,12 +290,14 @@ function degreeToPoint(player, target) {
 
 class GeomUtils {
   static getLinearFunctionBasedOnTwoDots(first, second) {
-    const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
+    const [a,b] = GeomUtils.gauss([ [first.x, 1, first.y], [second.x, 1, second.y] ]);
     return GeomUtils.getYofLinearFunction.bind(null, a, b);
   }
 
   static getLinearFunctionCooficients(firstDot, secondDot) {
-    return GeomUtils.gauss([ [firstDot.x, 1], [secondDot.x, 1] ], [firstDot.y, secondDot.y]);;
+    return GeomUtils.gauss(
+      [ [firstDot.x, 1, firstDot.y], [secondDot.x, 1, secondDot.y] ]
+    );
   }
 
   static getLinearFunctionPerpendicularInDot(a, b, dot) {
@@ -324,70 +324,53 @@ class GeomUtils {
   }
 
   static getTextRepresentationOfLinearFunction(first, second) {
-    const [a,b] = GeomUtils.gauss([ [first.x, 1], [second.x, 1] ], [first.y, second.y]);
+    const [a,b] = GeomUtils.gauss([ [first.x, 1, first.y], [second.x, 1, second.y] ]);
     return `y = ${a}x + ${b}`
   }
 
-  static gauss(A, x) {
-    function array_fill(i, n, v) {
-      const a = [];
-      for (; i < n; i++) {
-        a.push(v);
-      }
-
-      return a;
-    }
-
-    var i, k, j;
-
-    // Just make a single matrix
-    for (i=0; i < A.length; i++) {
-      A[i].push(x[i]);
-    }
+  static gauss(A) {
     var n = A.length;
 
-    for (i=0; i < n; i++) {
-      // Search for maximum in this column
-      var maxEl = abs(A[i][i]),
-          maxRow = i;
-      for (k=i+1; k < n; k++) {
-        if (abs(A[k][i]) > maxEl) {
-          maxEl = abs(A[k][i]);
-          maxRow = k;
+    for (var i=0; i<n; i++) {
+        // Search for maximum in this column
+        var maxEl = Math.abs(A[i][i]);
+        var maxRow = i;
+        for(var k=i+1; k<n; k++) {
+            if (Math.abs(A[k][i]) > maxEl) {
+                maxEl = Math.abs(A[k][i]);
+                maxRow = k;
+            }
         }
-      }
 
-
-      // Swap maximum row with current row (column by column)
-      for (k=i; k < n+1; k++) {
-        var tmp = A[maxRow][k];
-        A[maxRow][k] = A[i][k];
-        A[i][k] = tmp;
-      }
-
-      // Make all rows below this one 0 in current column
-      for (k=i+1; k < n; k++) {
-        var c = -A[k][i]/A[i][i];
-        for (j=i; j < n+1; j++) {
-          if (i===j) {
-            A[k][j] = 0;
-          } else {
-            A[k][j] += c * A[i][j];
-          }
+        // Swap maximum row with current row (column by column)
+        for (var k=i; k<n+1; k++) {
+            var tmp = A[maxRow][k];
+            A[maxRow][k] = A[i][k];
+            A[i][k] = tmp;
         }
-      }
+
+        // Make all rows below this one 0 in current column
+        for (k=i+1; k<n; k++) {
+            var c = -A[k][i]/A[i][i];
+            for(var j=i; j<n+1; j++) {
+                if (i==j) {
+                    A[k][j] = 0;
+                } else {
+                    A[k][j] += c * A[i][j];
+                }
+            }
+        }
     }
 
     // Solve equation Ax=b for an upper triangular matrix A
-    x = array_fill(0, n, 0);
-    for (i=n-1; i > -1; i--) {
-      x[i] = A[i][n]/A[i][i];
-      for (k=i-1; k > -1; k--) {
-        A[k][n] -= A[k][i] * x[i];
-      }
+    var x= new Array(n);
+    for (var i=n-1; i>-1; i--) {
+        x[i] = A[i][n]/A[i][i];
+        for (var k=i-1; k>-1; k--) {
+            A[k][n] -= A[k][i] * x[i];
+        }
     }
-
-    return x.map(number => Math.floor(number));
+    return x;
   }
 }
 
